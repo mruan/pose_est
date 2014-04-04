@@ -52,13 +52,21 @@ featureT_::Ptr getFeature(cloudT_::Ptr cloudp, normalT_::Ptr normp)
 	return (vfhs);
 }
 
+void show_help(char* arg)
+{
+  printf("Usage: %s file_path output_dir base_name aug_name\n", arg);
+}
 
 int main(int argc, char* argv[])
 {	
-	//std::string dir(argv[1]);
-	std::string file(argv[1]);
+  if (argc < 4)
+    {
+      show_help(argv[0]);
+      return -1;
+    }
+	std::string file_path(argv[1]);
 	char* output_dir = argv[2];
-	char* base_name  = argv[3];
+	char* aug_name   = argv[3];
 	
 	// Open the file:
 	cloudT_::Ptr cloudp(new cloudT_());
@@ -68,13 +76,13 @@ int main(int argc, char* argv[])
 	PartLabelUtil pl_util;
 	
 	AsciiPcdUtil pcd_util;
-	pcd_util.loadPCDwLabel(file, cloudp, labels, label_counts);
+	pcd_util.loadPCDwLabel(file_path, cloudp, labels, label_counts);
 	
-	printf("%d points loaded\n", cloudp->size());
+	printf("%d points loaded, ", (int)cloudp->size());
 	// Compute the normal
 	normalT_::Ptr normalp = getNormal(cloudp);
 	
-	printf("%d normals computed\n", normalp->size());
+	printf("%d normals computed. ", (int)normalp->size());
 	// Separate the points and normals into different parts:
 	// also filter out points with undefined normals
 	std::vector< std::vector<int> > list_of_idx;
@@ -88,6 +96,7 @@ int main(int argc, char* argv[])
 	
 	const int num_points = normalp->points.size();
 	int pl_idx; // part label index
+	int count_valid = 0;
 	for(int i=0; i< num_points; ++i)
 	{
 		if (!pcl::isFinite<pcl::Normal>(normalp->points[i]))
@@ -97,12 +106,15 @@ int main(int argc, char* argv[])
 		}
 		
 		pl_idx = pl_util.findIdx(labels[i]);
-		if(pl_idx >=0)
+		if(pl_idx <0)
 		  {
-		    list_of_idx[pl_idx].push_back(i);
+		    continue;
 		  }
+		list_of_idx[pl_idx].push_back(i);
+		++count_valid;
 	}
-	
+	printf("%d valid remaining\n", count_valid);
+
 	char buf[128];
 	int label_value;
 	int num_p;
@@ -110,7 +122,7 @@ int main(int argc, char* argv[])
 	{
 		label_value = PartLabelUtil::getLabel(i);
 		num_p = list_of_idx[i].size();
-		printf("Part %d has %d points\n", label_value, num_p);
+		printf("Part %8d has %d points\n", label_value, num_p);
 		
 		if(num_p < 50)
 		  continue;
@@ -124,12 +136,12 @@ int main(int argc, char* argv[])
 		// save the output point cloud to disk e.g. 
 		// output_dir/mn1_c1_112345.pcd
 		// output_dir/mn1_c1_112345_vfh.pcd
-		sprintf(buf, "%s%s_%d.pcd", output_dir, base_name, label_value);
+		sprintf(buf, "%s/%s_%08d.pcd", output_dir, aug_name, label_value);
 		pcl::io::savePCDFileASCII (buf, *partcl_p);
 		
-		sprintf(buf, "%s%s_%d_vfh.pcd", output_dir, base_name, label_value);
+		sprintf(buf, "%s/%s_%08d_vfh.pcd", output_dir, aug_name, label_value);
 		pcl::io::savePCDFileASCII (buf, *vfhs);
 	}
-	
+	printf("Save files to %s/%s_label_[vfh].pcd\n", output_dir, aug_name);
   return 0;
 }

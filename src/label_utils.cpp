@@ -19,7 +19,7 @@ std::map<int,int> PartLabelUtil::createMap()
 	{
 		m[labels[i]] = i;
 	}
-	printf("map created\n");
+	//	printf("map created\n");
 	return m;
 }
 
